@@ -1,92 +1,287 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#090d16"><title>WORLD DOMINATION 3D</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WORLD DOMINATION 3D</title>
+
 <style>
-:root{--bg:#080c14;--panel:#111927;--line:#26364b;--txt:#eaf1ff;--muted:#8ea1bb;--accent:#55d6ff;--red:#ff5268;--green:#65e6a6}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px system-ui,Arial;overflow:hidden}
-header{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#0d1420;border-bottom:1px solid var(--line)}
-.logo{font-weight:900;letter-spacing:1px;font-size:15px}.logo span{color:var(--accent)}.pill{border:1px solid var(--line);border-radius:20px;padding:5px 9px;color:var(--muted);font-size:11px}
-main{height:calc(100dvh - 54px);display:grid;grid-template-rows:1fr auto;min-height:0}
-#mapwrap{position:relative;min-height:0;background:radial-gradient(ellipse at 50% 45%,#15263a,#080e18 72%);overflow:hidden}
-canvas{width:100%;height:100%;display:block;touch-action:manipulation}
-.topstats{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
-.stat{background:#0b1320dc;border:1px solid #26364bcc;border-radius:9px;padding:6px 9px;font-size:11px;color:#b8c9df}.stat b{color:white}
-.maplabel{position:absolute;bottom:10px;left:10px;color:#7890ac;font-size:10px;letter-spacing:1px}
-#panel{background:#0d1420;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));}
-.row{display:flex;gap:7px;align-items:center}.row>*{flex:1;min-width:0}
-h2{font-size:15px;margin:0 0 4px}.sub{color:var(--muted);font-size:11px;margin-bottom:9px}
-button{background:#17263a;border:1px solid #2b425c;color:#eaf1ff;border-radius:9px;padding:10px 7px;font-weight:700;font-size:12px}
-button.primary{background:linear-gradient(135deg,#087ca4,#1553a8);border-color:#40cfff}
-button.danger{background:#351b2a;border-color:#733044;color:#ffb4c0}
-button:disabled{opacity:.35}
-#toast{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:#17283a;border:1px solid #3d5d7c;border-radius:10px;padding:9px 14px;display:none;z-index:5;white-space:nowrap}
-#modal{position:absolute;inset:0;background:#030711c9;display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
-.card{width:min(420px,100%);background:#101a29;border:1px solid #31465f;border-radius:16px;padding:16px;box-shadow:0 20px 70px #0009}
-.card h2{font-size:18px;margin-bottom:8px}.card p{color:#a9bbd1;line-height:1.5;font-size:13px}
-#battleCanvas{width:100%;height:180px;border-radius:10px;background:#070b12;margin:8px 0}
-.small{font-size:10px;color:#7890ac}
-@media(min-width:700px){main{grid-template-columns:1fr 320px;grid-template-rows:1fr}#panel{border-top:0;border-left:1px solid var(--line);padding:16px}.topstats{right:auto}.row{flex-wrap:wrap}.row button{flex-basis:45%}}
-</style></head>
-<body>
-<header><div class="logo">WORLD <span>DOMINATION</span> <small style="color:#8ea1bb">3D</small></div><div class="pill">ПРОТОТИП 0.1</div></header>
-<main>
-<section id="mapwrap"><canvas id="map"></canvas><div class="topstats"><div class="stat">💰 <b id="money">1200</b></div><div class="stat">🪖 <b id="army">24 000</b></div><div class="stat">🗺️ <b id="territory">1</b> территория</div><div class="stat">📅 День <b id="day">1</b></div></div><div class="maplabel">WORLD MAP • Нажми на страну</div><div id="toast"></div></section>
-<section id="panel"><div class="row" style="margin-bottom:9px"><div><h2 id="countryName">Выбери страну</h2><div class="sub" id="countryInfo">Нажми на любую страну на карте, чтобы начать</div></div><button id="next" class="primary">⏩ Следующий день</button></div>
-<div class="row"><button id="recruit">➕ Набрать войска</button><button id="drone">🛩️ Дрон-удар</button><button id="missile" class="danger">🚀 Ракета</button><button id="diplomacy">🕊️ Переговоры</button></div>
-<div class="small" style="margin-top:8px">Демо: выбери соседнюю страну и начни операцию. Действия расходуют бюджет.</div></section>
-</main>
-<div id="modal"><div class="card" id="modalcard"></div></div>
-<script>
-const canvas=document.getElementById('map'),ctx=canvas.getContext('2d');
-const countries=[
-{id:'usa',name:'США',x:.20,y:.34,color:'#3d7bc0',army:24000,money:1200,owned:true,neighbors:['canada','mexico']},
-{id:'canada',name:'Канада',x:.22,y:.20,color:'#b74d61',army:12000,neighbors:['usa']},
-{id:'mexico',name:'Мексика',x:.25,y:.48,color:'#398f6b',army:9000,neighbors:['usa']},
-{id:'brazil',name:'Бразилия',x:.32,y:.72,color:'#b59a36',army:15000,neighbors:['argentina']},
-{id:'argentina',name:'Аргентина',x:.30,y:.87,color:'#4e91a8',army:8000,neighbors:['brazil']},
-{id:'uk',name:'Великобритания',x:.47,y:.30,color:'#8060b4',army:7000,neighbors:['france']},
-{id:'france',name:'Франция',x:.49,y:.37,color:'#3d9d9a',army:11000,neighbors:['uk','germany']},
-{id:'germany',name:'Германия',x:.53,y:.32,color:'#a66d38',army:13000,neighbors:['france','poland']},
-{id:'poland',name:'Польша',x:.56,y:.34,color:'#ad4f70',army:9000,neighbors:['germany','russia']},
-{id:'russia',name:'Россия',x:.68,y:.27,color:'#4777aa',army:30000,neighbors:['poland','china']},
-{id:'china',name:'Китай',x:.78,y:.43,color:'#b44d43',army:32000,neighbors:['russia','india']},
-{id:'india',name:'Индия',x:.70,y:.55,color:'#b38b3c',army:22000,neighbors:['china']},
-{id:'egypt',name:'Египет',x:.55,y:.51,color:'#479b65',army:6000,neighbors:['turkey']},
-{id:'turkey',name:'Турция',x:.57,y:.43,color:'#a4484e',army:8500,neighbors:['egypt']},
-{id:'japan',name:'Япония',x:.87,y:.43,color:'#8e5caa',army:10000,neighbors:[]},
-{id:'australia',name:'Австралия',x:.84,y:.78,color:'#4a9aa1',army:7000,neighbors:[]}
-];
-let selected=null,day=1,money=1200,army=24000,owned=1,war=null,anim=0;
-function resize(){let r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);canvas.width=r.width*d;canvas.height=r.height*d;ctx.setTransform(d,0,0,d,0,0);draw()}
-function polygon(points,fill,stroke){ctx.beginPath();points.forEach((p,i)=>{let x=p[0]*canvas.clientWidth,y=p[1]*canvas.clientHeight;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke||'#263b50';ctx.lineWidth=1.2;ctx.stroke()}
-function draw(){let w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);
- // subtle latitude/longitude grid
- ctx.strokeStyle='#20344a55';ctx.lineWidth=1;for(let i=1;i<7;i++){ctx.beginPath();ctx.ellipse(w/2,h/2,w*i/14,h*.45,0,0,Math.PI*2);ctx.stroke()}
- for(let i=1;i<6;i++){ctx.beginPath();ctx.moveTo(0,h*i/6);ctx.lineTo(w,h*i/6);ctx.stroke()}
- // stylized continent silhouettes
- polygon([[.06,.2],[.13,.12],[.23,.13],[.31,.24],[.29,.38],[.25,.49],[.22,.56],[.18,.46],[.12,.4]],'#152d42','#284c67');
- polygon([[.25,.52],[.34,.56],[.37,.69],[.33,.86],[.29,.96],[.25,.77]],'#152d42','#284c67');
- polygon([[.44,.24],[.5,.19],[.57,.23],[.6,.34],[.55,.43],[.5,.4],[.46,.33]],'#152d42','#284c67');
- polygon([[.52,.4],[.61,.39],[.66,.48],[.62,.57],[.55,.56],[.51,.48]],'#152d42','#284c67');
- polygon([[.59,.22],[.74,.16],[.91,.25],[.95,.4],[.85,.5],[.77,.45],[.68,.4],[.61,.34]],'#152d42','#284c67');
- polygon([[.65,.48],[.72,.52],[.75,.66],[.7,.72],[.65,.61]],'#152d42','#284c67');
- polygon([[.77,.69],[.89,.7],[.92,.82],[.85,.9],[.78,.84]],'#152d42','#284c67');
- // country markers and labels
- countries.forEach(c=>{let x=c.x*w,y=c.y*h,r=c.owned?12:9;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=c.owned?'#55d6ff':c.color;ctx.fill();ctx.strokeStyle=selected===c?'#fff':'#07101b';ctx.lineWidth=selected===c?3:2;ctx.stroke();ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.fillStyle='#d8e6f6';ctx.fillText(c.name,x,y-r-5)});
- if(war){let a=countries.find(c=>c.id===war.from),b=countries.find(c=>c.id===war.to);ctx.setLineDash([5,4]);ctx.strokeStyle='#ff5368';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x*w,a.y*h);ctx.lineTo(b.x*w,b.y*h);ctx.stroke();ctx.setLineDash([])}
+* {
+  box-sizing: border-box;
 }
-function toast(t){let el=document.getElementById('toast');el.textContent=t;el.style.display='block';setTimeout(()=>el.style.display='none',1900)}
-function update(){document.getElementById('money').textContent=money.toLocaleString('ru');document.getElementById('army').textContent=army.toLocaleString('ru');document.getElementById('territory').textContent=owned;document.getElementById('day').textContent=day;
-document.getElementById('countryName').textContent=selected?selected.name:'Выбери страну';document.getElementById('countryInfo').textContent=selected?(selected.owned?'Твоя территория • Армия '+selected.army.toLocaleString('ru'):'Чужая страна • Армия '+selected.army.toLocaleString('ru')):'Нажми на любую страну на карте, чтобы начать';
-document.getElementById('recruit').disabled=!selected||!selected.owned;document.getElementById('drone').disabled=!selected||!selected.owned;document.getElementById('missile').disabled=!selected||!selected.owned;document.getElementById('diplomacy').disabled=!selected||!selected.owned;draw()}
-canvas.addEventListener('pointerdown',e=>{let r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;let c=countries.find(c=>Math.hypot(c.x-x,c.y-y)<.055);if(c){selected=c;update();if(!c.owned)toast(c.name+' — выбрана цель')}});
-document.getElementById('next').onclick=()=>{day++;money+=180+owned*70;toast('День '+day+': бюджет пополнен');update()};
-document.getElementById('recruit').onclick=()=>{if(money<250)return toast('Недостаточно средств');money-=250;army+=3000;selected.army+=3000;toast('Набрано 3 000 солдат');update()};
-function strike(kind){if(!selected||!selected.owned)return;let targets=countries.filter(c=>!c.owned&&selected.neighbors.includes(c.id));if(!targets.length)return toast('Нет доступных соседних целей');let target=targets[0],cost=kind==='drone'?180:450;if(money<cost)return toast('Недостаточно средств');money-=cost;target.army=Math.max(0,target.army-(kind==='drone'?2500:6000));war={from:selected.id,to:target.id};showBattle(kind,target);update()}
-document.getElementById('drone').onclick=()=>strike('drone');document.getElementById('missile').onclick=()=>strike('missile');
-function showBattle(kind,target){let modal=document.getElementById('modal'),card=document.getElementById('modalcard');modal.style.display='flex';card.innerHTML=`<h2>⚔️ Военная операция</h2><p>${kind==='drone'?'Удар ударного БПЛА':'Ракетный удар'} по территории: <b>${target.name}</b></p><canvas id="battleCanvas" width="600" height="240"></canvas><p id="battleText">Идёт симуляция операции…</p><div class="row"><button id="battleClose">Закрыть</button><button class="primary" id="occupy">Занять территорию</button></div>`;let bc=document.getElementById('battleCanvas'),cx=bc.getContext('2d'),t=0;function frame(){if(!document.getElementById('battleCanvas'))return;let w=bc.width,h=bc.height;cx.fillStyle='#080e17';cx.fillRect(0,0,w,h);cx.fillStyle='#14283b';cx.fillRect(0,h*.65,w,h*.35);cx.strokeStyle='#35516a';for(let i=0;i<9;i++){cx.beginPath();cx.moveTo(i*w/8,h*.65);cx.lineTo(w/2+(i-4)*40,h);cx.stroke()}cx.fillStyle='#718aa4';cx.fillRect(w*.72,h*.46,60,45);cx.fillRect(w*.8,h*.38,35,30);cx.fillStyle=kind==='drone'?'#55d6ff':'#ff596b';let x=(t%100)/100*w;cx.beginPath();cx.arc(x,h*.28+Math.sin(t/5)*10,8,0,7);cx.fill();if(t%100>85){cx.fillStyle='#ffb347';cx.beginPath();cx.arc(w*.76,h*.6,22*Math.random()+4,0,7);cx.fill()}t++;requestAnimationFrame(frame)}frame();document.getElementById('battleClose').onclick=()=>modal.style.display='none';document.getElementById('occupy').onclick=()=>{if(target.army>0){toast('Сначала ослабь армию цели');return}target.owned=true;target.color='#55d6ff';owned++;army=Math.max(5000,army-1500);war=null;modal.style.display='none';toast(target.name+' присоединена!');update()}}
-document.getElementById('diplomacy').onclick=()=>{let target=countries.find(c=>!c.owned&&selected.neighbors.includes(c.id));if(!target)return toast('Нет соседей для переговоров');if(target.army>8000)return toast(target.name+' отклонила предложение');target.owned=true;owned++;money-=100;toast('Договор подписан: '+target.name+' присоединена');update()};
-window.addEventListener('resize',resize);resize();update();
-</script></body></html>
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #101820;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 12px;
+  background: rgba(15, 25, 34, 0.92);
+  border: 1px solid #435563;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+#title {
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+#status {
+  color: #b9cbd6;
+}
+
+#hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #8297a5;
+}
+</style>
+</head>
+
+<body>
+
+<div id="panel">
+  <div id="title">🌍 WORLD DOMINATION 3D</div>
+  <div id="status">Загрузка карты мира...</div>
+  <div id="hint">Двигай карту пальцем · Масштабируй двумя пальцами</div>
+</div>
+
+<canvas id="map"></canvas>
+
+<script>
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+const status = document.getElementById("status");
+
+let width = 0;
+let height = 0;
+let dpr = 1;
+
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+
+let countries = [];
+let pointers = new Map();
+
+let lastPointer = null;
+let pinchDistance = 0;
+let pinchScale = 1;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+
+  width = window.innerWidth;
+  height = window.innerHeight;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  drawMap();
+}
+
+function project(point) {
+  return [
+    width / 2 + offsetX + point[0] * scale,
+    height / 2 + offsetY - point[1] * scale
+  ];
+}
+
+function drawPolygon(rings) {
+  ctx.beginPath();
+
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length; i++) {
+      const point = project(ring[i]);
+
+      if (i === 0) {
+        ctx.moveTo(point[0], point[1]);
+      } else {
+        ctx.lineTo(point[0], point[1]);
+      }
+    }
+
+    ctx.closePath();
+  }
+
+  ctx.fillStyle = "#263d49";
+  ctx.fill();
+
+  ctx.strokeStyle = "#8296a3";
+  ctx.lineWidth = Math.max(0.35, 0.7 / scale);
+  ctx.stroke();
+}
+
+function drawMap() {
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.fillStyle = "#101820";
+  ctx.fillRect(0, 0, width, height);
+
+  for (const country of countries) {
+    if (!country.geometry) continue;
+
+    const geometry = country.geometry;
+
+    if (geometry.type === "Polygon") {
+      drawPolygon(geometry.coordinates);
+    }
+
+    if (geometry.type === "MultiPolygon") {
+      for (const polygon of geometry.coordinates) {
+        drawPolygon(polygon);
+      }
+    }
+  }
+}
+
+async function loadMap() {
+  try {
+    status.textContent = "Загружаем страны...";
+
+    const response = await fetch(
+      "https://raw.githubusercontent.com/deldesierto/world-geojson/master/countries.geojson"
+    );
+
+    if (!response.ok) {
+      throw new Error("Не удалось загрузить карту");
+    }
+
+    const data = await response.json();
+
+    countries = data.features;
+
+    status.textContent = "Карта загружена · " + countries.length + " стран";
+
+    drawMap();
+  } catch (error) {
+    status.textContent = "Ошибка загрузки карты. Проверь интернет.";
+  }
+}
+
+function distanceBetween(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+canvas.addEventListener("pointerdown", function(event) {
+  canvas.setPointerCapture(event.pointerId);
+
+  pointers.set(event.pointerId, {
+    x: event.clientX,
+    y: event.clientY
+  });
+
+  if (pointers.size === 1) {
+    lastPointer = {
+      x: event.clientX,
+      y: event.clientY,
+      offsetX: offsetX,
+      offsetY: offsetY
+    };
+  }
+
+  if (pointers.size === 2) {
+    const points = Array.from(pointers.values());
+
+    pinchDistance = distanceBetween(points[0], points[1]);
+    pinchScale = scale;
+  }
+});
+
+canvas.addEventListener("pointermove", function(event) {
+  if (!pointers.has(event.pointerId)) return;
+
+  pointers.set(event.pointerId, {
+    x: event.clientX,
+    y: event.clientY
+  });
+
+  if (pointers.size === 1 && lastPointer) {
+    offsetX = lastPointer.offsetX + event.clientX - lastPointer.x;
+    offsetY = lastPointer.offsetY + event.clientY - lastPointer.y;
+
+    drawMap();
+  }
+
+  if (pointers.size === 2) {
+    const points = Array.from(pointers.values());
+
+    const currentDistance = distanceBetween(points[0], points[1]);
+
+    if (pinchDistance > 0) {
+      scale = Math.max(
+        0.5,
+        Math.min(10, pinchScale * currentDistance / pinchDistance)
+      );
+
+      drawMap();
+    }
+  }
+});
+
+function stopPointer(event) {
+  pointers.delete(event.pointerId);
+
+  if (pointers.size === 1) {
+    const point = Array.from(pointers.values())[0];
+
+    lastPointer = {
+      x: point.x,
+      y: point.y,
+      offsetX: offsetX,
+      offsetY: offsetY
+    };
+  } else {
+    lastPointer = null;
+  }
+}
+
+canvas.addEventListener("pointerup", stopPointer);
+canvas.addEventListener("pointercancel", stopPointer);
+
+canvas.addEventListener("wheel", function(event) {
+  event.preventDefault();
+
+  if (event.deltaY < 0) {
+    scale *= 1.1;
+  } else {
+    scale *= 0.9;
+  }
+
+  scale = Math.max(0.5, Math.min(10, scale));
+
+  drawMap();
+}, { passive: false });
+
+window.addEventListener("resize", resize);
+
+resize();
+loadMap();
+</script>
+
+</body>
+</html>

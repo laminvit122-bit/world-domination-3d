@@ -1,0 +1,8 @@
+{
+  "appId": "com.worlddomination.game",
+  "appName": "World Domination 3D",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

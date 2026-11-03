@@ -1,0 +1,16 @@
+{
+  "name": "world-domination-3d",
+  "version": "0.1.0",
+  "private": true,
+  "description": "World Domination 3D mobile strategy prototype",
+  "scripts": {
+    "build": "echo static web app ready"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

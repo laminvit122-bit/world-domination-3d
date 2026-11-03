@@ -4,284 +4,174 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>WORLD DOMINATION 3D</title>
-
 <style>
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #101820;
-  color: white;
-  font-family: Arial, sans-serif;
-}
-
-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-}
-
-#panel {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-  padding: 12px;
-  background: rgba(15, 25, 34, 0.92);
-  border: 1px solid #435563;
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-#title {
-  font-size: 17px;
-  font-weight: bold;
-  margin-bottom: 6px;
-}
-
-#status {
-  color: #b9cbd6;
-}
-
-#hint {
-  margin-top: 6px;
-  font-size: 11px;
-  color: #8297a5;
-}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;color:white;font-family:Arial,sans-serif}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#panel{position:fixed;top:12px;left:12px;z-index:2;padding:12px;background:rgba(15,25,34,.94);border:1px solid #435563;border-radius:10px;font-size:14px;max-width:calc(100% - 24px)}
+#title{font-size:17px;font-weight:bold;margin-bottom:7px}
+#status{color:#b9cbd6;overflow-wrap:anywhere}
+#hint{margin-top:7px;font-size:11px;color:#8297a5}
 </style>
 </head>
-
 <body>
-
 <div id="panel">
-  <div id="title">🌍 WORLD DOMINATION 3D</div>
-  <div id="status">Загрузка карты мира...</div>
-  <div id="hint">Двигай карту пальцем · Масштабируй двумя пальцами</div>
+<div id="title">🌍 WORLD DOMINATION 3D</div>
+<div id="status">Загрузка карты мира...</div>
+<div id="hint">Двигай карту пальцем · Масштабируй двумя пальцами</div>
 </div>
-
 <canvas id="map"></canvas>
-
 <script>
-const canvas = document.getElementById("map");
-const ctx = canvas.getContext("2d");
-const status = document.getElementById("status");
+const canvas=document.getElementById("map");
+const ctx=canvas.getContext("2d");
+const status=document.getElementById("status");
+let width=0,height=0,dpr=1;
+let scale=1,offsetX=0,offsetY=0;
+let countries=[];
+let pointers=new Map();
+let lastPointer=null;
+let pinchDistance=0,pinchScale=1;
 
-let width = 0;
-let height = 0;
-let dpr = 1;
-
-let scale = 1;
-let offsetX = 0;
-let offsetY = 0;
-
-let countries = [];
-let pointers = new Map();
-
-let lastPointer = null;
-let pinchDistance = 0;
-let pinchScale = 1;
-
-function resize() {
-  dpr = window.devicePixelRatio || 1;
-
-  width = window.innerWidth;
-  height = window.innerHeight;
-
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  drawMap();
+function resize(){
+dpr=window.devicePixelRatio||1;
+width=window.innerWidth;
+height=window.innerHeight;
+canvas.width=width*dpr;
+canvas.height=height*dpr;
+ctx.setTransform(dpr,0,0,dpr,0,0);
+drawMap();
 }
 
-function project(point) {
-  return [
-    width / 2 + offsetX + point[0] * scale,
-    height / 2 + offsetY - point[1] * scale
-  ];
+function project(point){
+return[
+width/2+offsetX+point[0]*scale,
+height/2+offsetY-point[1]*scale
+];
 }
 
-function drawPolygon(rings) {
-  ctx.beginPath();
-
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length; i++) {
-      const point = project(ring[i]);
-
-      if (i === 0) {
-        ctx.moveTo(point[0], point[1]);
-      } else {
-        ctx.lineTo(point[0], point[1]);
-      }
-    }
-
-    ctx.closePath();
-  }
-
-  ctx.fillStyle = "#263d49";
-  ctx.fill();
-
-  ctx.strokeStyle = "#8296a3";
-  ctx.lineWidth = Math.max(0.35, 0.7 / scale);
-  ctx.stroke();
+function drawPolygon(rings){
+ctx.beginPath();
+for(const ring of rings){
+for(let i=0;i<ring.length;i++){
+const point=project(ring[i]);
+if(i===0)ctx.moveTo(point[0],point[1]);
+else ctx.lineTo(point[0],point[1]);
+}
+ctx.closePath();
+}
+ctx.fillStyle="#263d49";
+ctx.fill();
+ctx.strokeStyle="#8296a3";
+ctx.lineWidth=Math.max(.35,.7/scale);
+ctx.stroke();
 }
 
-function drawMap() {
-  ctx.clearRect(0, 0, width, height);
-
-  ctx.fillStyle = "#101820";
-  ctx.fillRect(0, 0, width, height);
-
-  for (const country of countries) {
-    if (!country.geometry) continue;
-
-    const geometry = country.geometry;
-
-    if (geometry.type === "Polygon") {
-      drawPolygon(geometry.coordinates);
-    }
-
-    if (geometry.type === "MultiPolygon") {
-      for (const polygon of geometry.coordinates) {
-        drawPolygon(polygon);
-      }
-    }
-  }
+function drawMap(){
+ctx.clearRect(0,0,width,height);
+ctx.fillStyle="#101820";
+ctx.fillRect(0,0,width,height);
+for(const country of countries){
+if(!country.geometry)continue;
+const geometry=country.geometry;
+if(geometry.type==="Polygon")drawPolygon(geometry.coordinates);
+if(geometry.type==="MultiPolygon"){
+for(const polygon of geometry.coordinates)drawPolygon(polygon);
+}
+}
 }
 
-async function loadMap() {
-  try {
-    status.textContent = "Загружаем страны...";
-
-    const response = await fetch(
-      "https://raw.githubusercontent.com/deldesierto/world-geojson/master/countries.geojson"
-    );
-
-    if (!response.ok) {
-      throw new Error("Не удалось загрузить карту");
-    }
-
-    const data = await response.json();
-
-    countries = data.features;
-
-    status.textContent = "Карта загружена · " + countries.length + " стран";
-
-    drawMap();
-  } catch (error) {
-    status.textContent = "Ошибка загрузки карты. Проверь интернет.";
-  }
+async function loadMap(){
+status.textContent="Подключаем источник карты...";
+const sources=[
+"https://datahub.io/core/geo-boundaries-world-110m/_r/-/countries.geojson",
+"https://datahub.io/core/geo-countries/r/countries.geojson"
+];
+let lastError=null;
+for(const url of sources){
+try{
+status.textContent="Загружаем границы стран...";
+const response=await fetch(url);
+if(!response.ok)throw new Error("HTTP "+response.status);
+const data=await response.json();
+if(!data.features||!Array.isArray(data.features)){
+throw new Error("Неизвестный формат карты");
+}
+countries=data.features;
+status.textContent="Карта загружена · "+countries.length+" стран";
+drawMap();
+return;
+}catch(error){
+lastError=error;
+}
+}
+status.textContent="Ошибка загрузки: "+(lastError?lastError.message:"неизвестная ошибка");
 }
 
-function distanceBetween(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-
-  return Math.sqrt(dx * dx + dy * dy);
+function distanceBetween(a,b){
+const dx=a.x-b.x,dy=a.y-b.y;
+return Math.sqrt(dx*dx+dy*dy);
 }
 
-canvas.addEventListener("pointerdown", function(event) {
-  canvas.setPointerCapture(event.pointerId);
-
-  pointers.set(event.pointerId, {
-    x: event.clientX,
-    y: event.clientY
-  });
-
-  if (pointers.size === 1) {
-    lastPointer = {
-      x: event.clientX,
-      y: event.clientY,
-      offsetX: offsetX,
-      offsetY: offsetY
-    };
-  }
-
-  if (pointers.size === 2) {
-    const points = Array.from(pointers.values());
-
-    pinchDistance = distanceBetween(points[0], points[1]);
-    pinchScale = scale;
-  }
+canvas.addEventListener("pointerdown",function(event){
+canvas.setPointerCapture(event.pointerId);
+pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+if(pointers.size===1){
+lastPointer={
+x:event.clientX,y:event.clientY,
+offsetX:offsetX,offsetY:offsetY
+};
+}
+if(pointers.size===2){
+const points=Array.from(pointers.values());
+pinchDistance=distanceBetween(points[0],points[1]);
+pinchScale=scale;
+}
 });
 
-canvas.addEventListener("pointermove", function(event) {
-  if (!pointers.has(event.pointerId)) return;
-
-  pointers.set(event.pointerId, {
-    x: event.clientX,
-    y: event.clientY
-  });
-
-  if (pointers.size === 1 && lastPointer) {
-    offsetX = lastPointer.offsetX + event.clientX - lastPointer.x;
-    offsetY = lastPointer.offsetY + event.clientY - lastPointer.y;
-
-    drawMap();
-  }
-
-  if (pointers.size === 2) {
-    const points = Array.from(pointers.values());
-
-    const currentDistance = distanceBetween(points[0], points[1]);
-
-    if (pinchDistance > 0) {
-      scale = Math.max(
-        0.5,
-        Math.min(10, pinchScale * currentDistance / pinchDistance)
-      );
-
-      drawMap();
-    }
-  }
+canvas.addEventListener("pointermove",function(event){
+if(!pointers.has(event.pointerId))return;
+pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+if(pointers.size===1&&lastPointer){
+offsetX=lastPointer.offsetX+event.clientX-lastPointer.x;
+offsetY=lastPointer.offsetY+event.clientY-lastPointer.y;
+drawMap();
+}
+if(pointers.size===2){
+const points=Array.from(pointers.values());
+const currentDistance=distanceBetween(points[0],points[1]);
+if(pinchDistance>0){
+scale=Math.max(.5,Math.min(10,pinchScale*currentDistance/pinchDistance));
+drawMap();
+}
+}
 });
 
-function stopPointer(event) {
-  pointers.delete(event.pointerId);
-
-  if (pointers.size === 1) {
-    const point = Array.from(pointers.values())[0];
-
-    lastPointer = {
-      x: point.x,
-      y: point.y,
-      offsetX: offsetX,
-      offsetY: offsetY
-    };
-  } else {
-    lastPointer = null;
-  }
+function stopPointer(event){
+pointers.delete(event.pointerId);
+if(pointers.size===1){
+const point=Array.from(pointers.values())[0];
+lastPointer={
+x:point.x,y:point.y,
+offsetX:offsetX,offsetY:offsetY
+};
+}else{
+lastPointer=null;
+}
 }
 
-canvas.addEventListener("pointerup", stopPointer);
-canvas.addEventListener("pointercancel", stopPointer);
+canvas.addEventListener("pointerup",stopPointer);
+canvas.addEventListener("pointercancel",stopPointer);
 
-canvas.addEventListener("wheel", function(event) {
-  event.preventDefault();
+canvas.addEventListener("wheel",function(event){
+event.preventDefault();
+scale*=event.deltaY<0?1.1:.9;
+scale=Math.max(.5,Math.min(10,scale));
+drawMap();
+},{passive:false});
 
-  if (event.deltaY < 0) {
-    scale *= 1.1;
-  } else {
-    scale *= 0.9;
-  }
-
-  scale = Math.max(0.5, Math.min(10, scale));
-
-  drawMap();
-}, { passive: false });
-
-window.addEventListener("resize", resize);
-
+window.addEventListener("resize",resize);
 resize();
 loadMap();
 </script>
-
 </body>
 </html>

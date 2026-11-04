@@ -2,176 +2,429 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>WORLD DOMINATION 3D</title>
+
 <style>
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;color:white;font-family:Arial,sans-serif}
-canvas{display:block;width:100%;height:100%;touch-action:none}
-#panel{position:fixed;top:12px;left:12px;z-index:2;padding:12px;background:rgba(15,25,34,.94);border:1px solid #435563;border-radius:10px;font-size:14px;max-width:calc(100% - 24px)}
-#title{font-size:17px;font-weight:bold;margin-bottom:7px}
-#status{color:#b9cbd6;overflow-wrap:anywhere}
-#hint{margin-top:7px;font-size:11px;color:#8297a5}
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #101820;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+#panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 12px;
+  background: rgba(15, 25, 34, 0.94);
+  border: 1px solid #435563;
+  border-radius: 10px;
+  max-width: calc(100% - 24px);
+}
+
+#title {
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+#info {
+  color: #b9cbd6;
+  font-size: 13px;
+}
+
+#hint {
+  color: #8297a5;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+#reset {
+  margin-top: 9px;
+  padding: 7px 10px;
+  color: white;
+  background: #344b5a;
+  border: 1px solid #607887;
+  border-radius: 6px;
+}
 </style>
 </head>
+
 <body>
+
 <div id="panel">
-<div id="title">🌍 WORLD DOMINATION 3D</div>
-<div id="status">Загрузка карты мира...</div>
-<div id="hint">Двигай карту пальцем · Масштабируй двумя пальцами</div>
+  <div id="title">🌍 WORLD DOMINATION 3D</div>
+  <div id="info">Выбери страну на карте</div>
+  <div id="hint">Перемещение — одним пальцем · Масштаб — двумя</div>
+  <button id="reset">Сбросить карту</button>
 </div>
+
 <canvas id="map"></canvas>
+
 <script>
-const canvas=document.getElementById("map");
-const ctx=canvas.getContext("2d");
-const status=document.getElementById("status");
-let width=0,height=0,dpr=1;
-let scale=1,offsetX=0,offsetY=0;
-let countries=[];
-let pointers=new Map();
-let lastPointer=null;
-let pinchDistance=0,pinchScale=1;
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
 
-function resize(){
-dpr=window.devicePixelRatio||1;
-width=window.innerWidth;
-height=window.innerHeight;
-canvas.width=width*dpr;
-canvas.height=height*dpr;
-ctx.setTransform(dpr,0,0,dpr,0,0);
-drawMap();
-}
+let width = 0;
+let height = 0;
+let dpr = 1;
 
-function project(point){
-return[
-width/2+offsetX+point[0]*scale,
-height/2+offsetY-point[1]*scale
+let zoom = 1;
+let moveX = 0;
+let moveY = 0;
+
+let selectedCountry = null;
+let pointers = new Map();
+let dragStart = null;
+let pinchStartDistance = 0;
+let pinchStartZoom = 1;
+
+/*
+  Собственная схематичная карта.
+  Все координаты находятся прямо в этом файле.
+  Никаких внешних загрузок нет.
+*/
+
+const countries = [
+  {
+    name: "Канада",
+    color: "#426b85",
+    points: [[70,55],[180,35],[270,55],[310,100],[270,145],[190,150],[130,125],[75,110]]
+  },
+  {
+    name: "США",
+    color: "#426b85",
+    points: [[85,115],[130,125],[190,150],[270,145],[285,185],[245,205],[165,195],[105,175]]
+  },
+  {
+    name: "Мексика",
+    color: "#426b85",
+    points: [[105,175],[165,195],[190,225],[165,245],[135,220]]
+  },
+  {
+    name: "Бразилия",
+    color: "#39765e",
+    points: [[300,245],[350,230],[390,255],[385,315],[355,360],[325,340],[305,290]]
+  },
+  {
+    name: "Аргентина",
+    color: "#39765e",
+    points: [[325,340],[355,360],[345,410],[330,450],[315,420]]
+  },
+  {
+    name: "Великобритания",
+    color: "#78628e",
+    points: [[475,115],[485,105],[490,125],[480,140]]
+  },
+  {
+    name: "Франция",
+    color: "#78628e",
+    points: [[490,145],[520,140],[530,165],[510,180],[490,170]]
+  },
+  {
+    name: "Германия",
+    color: "#78628e",
+    points: [[525,125],[550,125],[560,150],[540,165],[525,150]]
+  },
+  {
+    name: "Испания",
+    color: "#78628e",
+    points: [[470,175],[505,180],[500,205],[475,205]]
+  },
+  {
+    name: "Россия",
+    color: "#78628e",
+    points: [[555,70],[680,45],[820,55],[930,85],[900,135],[800,150],[700,130],[610,145],[560,115]]
+  },
+  {
+    name: "Китай",
+    color: "#a65c50",
+    points: [[700,150],[800,150],[840,190],[810,230],[750,220],[710,190]]
+  },
+  {
+    name: "Индия",
+    color: "#a65c50",
+    points: [[680,205],[720,195],[735,230],[715,270],[695,245]]
+  },
+  {
+    name: "Япония",
+    color: "#a65c50",
+    points: [[875,170],[885,185],[880,205],[870,195]]
+  },
+  {
+    name: "Монголия",
+    color: "#a65c50",
+    points: [[700,125],[780,125],[800,150],[700,150]]
+  },
+  {
+    name: "Египет",
+    color: "#b18b4c",
+    points: [[535,205],[560,205],[565,225],[540,230]]
+  },
+  {
+    name: "ЮАР",
+    color: "#b18b4c",
+    points: [[570,345],[610,345],[620,375],[595,390],[575,375]]
+  },
+  {
+    name: "Австралия",
+    color: "#39765e",
+    points: [[790,330],[850,315],[900,335],[890,375],[850,390],[805,370]]
+  }
 ];
-}
 
-function drawPolygon(rings){
-ctx.beginPath();
-for(const ring of rings){
-for(let i=0;i<ring.length;i++){
-const point=project(ring[i]);
-if(i===0)ctx.moveTo(point[0],point[1]);
-else ctx.lineTo(point[0],point[1]);
-}
-ctx.closePath();
-}
-ctx.fillStyle="#263d49";
-ctx.fill();
-ctx.strokeStyle="#8296a3";
-ctx.lineWidth=Math.max(.35,.7/scale);
-ctx.stroke();
-}
-
-function drawMap(){
-ctx.clearRect(0,0,width,height);
-ctx.fillStyle="#101820";
-ctx.fillRect(0,0,width,height);
-for(const country of countries){
-if(!country.geometry)continue;
-const geometry=country.geometry;
-if(geometry.type==="Polygon")drawPolygon(geometry.coordinates);
-if(geometry.type==="MultiPolygon"){
-for(const polygon of geometry.coordinates)drawPolygon(polygon);
-}
-}
-}
-
-async function loadMap(){
-status.textContent="Подключаем источник карты...";
-const sources=[
-"https://datahub.io/core/geo-boundaries-world-110m/_r/-/countries.geojson",
-"https://datahub.io/core/geo-countries/r/countries.geojson"
+const continents = [
+  {
+    name: "Северная Америка",
+    points: [[45,40],[100,15],[210,20],[300,70],[315,130],[260,175],[190,190],[130,160],[75,125],[35,80]]
+  },
+  {
+    name: "Южная Америка",
+    points: [[285,220],[350,210],[400,255],[385,320],[350,390],[325,455],[305,390],[290,320]]
+  },
+  {
+    name: "Европа и Азия",
+    points: [[450,65],[520,45],[610,35],[720,40],[850,55],[950,80],[920,145],[850,175],[780,210],[700,195],[650,160],[590,175],[540,145],[490,155],[455,120]]
+  },
+  {
+    name: "Африка",
+    points: [[490,190],[560,185],[620,220],[630,285],[600,350],[570,390],[540,340],[510,280]]
+  },
+  {
+    name: "Австралия",
+    points: [[780,315],[850,300],[910,325],[905,380],[850,405],[800,375]]
+  }
 ];
-let lastError=null;
-for(const url of sources){
-try{
-status.textContent="Загружаем границы стран...";
-const response=await fetch(url);
-if(!response.ok)throw new Error("HTTP "+response.status);
-const data=await response.json();
-if(!data.features||!Array.isArray(data.features)){
-throw new Error("Неизвестный формат карты");
-}
-countries=data.features;
-status.textContent="Карта загружена · "+countries.length+" стран";
-drawMap();
-return;
-}catch(error){
-lastError=error;
-}
-}
-status.textContent="Ошибка загрузки: "+(lastError?lastError.message:"неизвестная ошибка");
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  width = window.innerWidth;
+  height = window.innerHeight;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawMap();
 }
 
-function distanceBetween(a,b){
-const dx=a.x-b.x,dy=a.y-b.y;
-return Math.sqrt(dx*dx+dy*dy);
+function transformPoint(point) {
+  const baseScale = Math.min(width / 1000, height / 500) * zoom;
+
+  return [
+    width / 2 + moveX + (point[0] - 500) * baseScale,
+    height / 2 + moveY + (point[1] - 250) * baseScale
+  ];
 }
 
-canvas.addEventListener("pointerdown",function(event){
-canvas.setPointerCapture(event.pointerId);
-pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
-if(pointers.size===1){
-lastPointer={
-x:event.clientX,y:event.clientY,
-offsetX:offsetX,offsetY:offsetY
-};
+function drawShape(points, fill, stroke, lineWidth) {
+  ctx.beginPath();
+
+  points.forEach((point, index) => {
+    const p = transformPoint(point);
+
+    if (index === 0) {
+      ctx.moveTo(p[0], p[1]);
+    } else {
+      ctx.lineTo(p[0], p[1]);
+    }
+  });
+
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
 }
-if(pointers.size===2){
-const points=Array.from(pointers.values());
-pinchDistance=distanceBetween(points[0],points[1]);
-pinchScale=scale;
+
+function drawMap() {
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.fillStyle = "#101820";
+  ctx.fillRect(0, 0, width, height);
+
+  // Материки
+  for (const continent of continents) {
+    drawShape(
+      continent.points,
+      "#263d49",
+      "#607887",
+      1
+    );
+  }
+
+  // Условные границы стран
+  for (const country of countries) {
+    const isSelected = selectedCountry === country.name;
+
+    drawShape(
+      country.points,
+      isSelected ? "#d5a94f" : country.color,
+      isSelected ? "#fff0b3" : "#8296a3",
+      isSelected ? 2.5 : 1
+    );
+  }
+
+  // Названия стран
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = Math.max(8, 11 * zoom) + "px Arial";
+
+  for (const country of countries) {
+    const center = country.points.reduce(
+      (sum, point) => [sum[0] + point[0], sum[1] + point[1]],
+      [0, 0]
+    );
+
+    center[0] /= country.points.length;
+    center[1] /= country.points.length;
+
+    const p = transformPoint(center);
+
+    if (zoom > 0.7) {
+      ctx.fillStyle = "#e0e8ed";
+      ctx.fillText(country.name, p[0], p[1]);
+    }
+  }
 }
+
+function distance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getPointerPosition(event) {
+  return {
+    x: event.clientX,
+    y: event.clientY
+  };
+}
+
+canvas.addEventListener("pointerdown", function(event) {
+  canvas.setPointerCapture(event.pointerId);
+  pointers.set(event.pointerId, getPointerPosition(event));
+
+  if (pointers.size === 1) {
+    dragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      moveX: moveX,
+      moveY: moveY
+    };
+  }
+
+  if (pointers.size === 2) {
+    const points = Array.from(pointers.values());
+    pinchStartDistance = distance(points[0], points[1]);
+    pinchStartZoom = zoom;
+  }
 });
 
-canvas.addEventListener("pointermove",function(event){
-if(!pointers.has(event.pointerId))return;
-pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
-if(pointers.size===1&&lastPointer){
-offsetX=lastPointer.offsetX+event.clientX-lastPointer.x;
-offsetY=lastPointer.offsetY+event.clientY-lastPointer.y;
-drawMap();
-}
-if(pointers.size===2){
-const points=Array.from(pointers.values());
-const currentDistance=distanceBetween(points[0],points[1]);
-if(pinchDistance>0){
-scale=Math.max(.5,Math.min(10,pinchScale*currentDistance/pinchDistance));
-drawMap();
-}
-}
+canvas.addEventListener("pointermove", function(event) {
+  if (!pointers.has(event.pointerId)) return;
+
+  pointers.set(event.pointerId, getPointerPosition(event));
+
+  if (pointers.size === 1 && dragStart) {
+    moveX = dragStart.moveX + event.clientX - dragStart.x;
+    moveY = dragStart.moveY + event.clientY - dragStart.y;
+    drawMap();
+  }
+
+  if (pointers.size === 2) {
+    const points = Array.from(pointers.values());
+    const currentDistance = distance(points[0], points[1]);
+
+    if (pinchStartDistance > 0) {
+      zoom = Math.max(
+        0.6,
+        Math.min(5, pinchStartZoom * currentDistance / pinchStartDistance)
+      );
+
+      drawMap();
+    }
+  }
 });
 
-function stopPointer(event){
-pointers.delete(event.pointerId);
-if(pointers.size===1){
-const point=Array.from(pointers.values())[0];
-lastPointer={
-x:point.x,y:point.y,
-offsetX:offsetX,offsetY:offsetY
-};
-}else{
-lastPointer=null;
+function pointerEnd(event) {
+  pointers.delete(event.pointerId);
+
+  if (pointers.size === 1) {
+    const point = Array.from(pointers.values())[0];
+
+    dragStart = {
+      x: point.x,
+      y: point.y,
+      moveX: moveX,
+      moveY: moveY
+    };
+  } else {
+    dragStart = null;
+  }
 }
-}
 
-canvas.addEventListener("pointerup",stopPointer);
-canvas.addEventListener("pointercancel",stopPointer);
+canvas.addEventListener("pointerup", pointerEnd);
+canvas.addEventListener("pointercancel", pointerEnd);
 
-canvas.addEventListener("wheel",function(event){
-event.preventDefault();
-scale*=event.deltaY<0?1.1:.9;
-scale=Math.max(.5,Math.min(10,scale));
-drawMap();
-},{passive:false});
+canvas.addEventListener("click", function(event) {
+  const rect = canvas.getBoundingClientRect();
+  const clickX = event.clientX - rect.left;
+  const clickY = event.clientY - rect.top;
 
-window.addEventListener("resize",resize);
+  for (const country of countries) {
+    const points = country.points.map(transformPoint);
+
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point[0], point[1]);
+      else ctx.lineTo(point[0], point[1]);
+    });
+    ctx.closePath();
+
+    if (ctx.isPointInPath(clickX, clickY)) {
+      selectedCountry = country.name;
+      info.textContent = "Выбрана страна: " + country.name;
+      drawMap();
+      return;
+    }
+  }
+});
+
+document.getElementById("reset").addEventListener("click", function() {
+  zoom = 1;
+  moveX = 0;
+  moveY = 0;
+  selectedCountry = null;
+  info.textContent = "Выбери страну на карте";
+  drawMap();
+});
+
+window.addEventListener("resize", resize);
+
 resize();
-loadMap();
 </script>
+
 </body>
 </html>
